@@ -1,0 +1,16 @@
+I'm subscribed to a mailing-list were people send interesting articles,
+usually as a link followed by the full text (for archival, as URL tend
+to become obsolete over time).
+
+The link are interesting enough that they could be shared with more
+people. Enters Twitter.
+
+mail2tweet is actually made of two separate tools:
+- dump1mail:  dumps on stdout the oldest email matching criteria
+- mail2tweet: tweets subject and (shortened) first link from an email on stdin
+
+The YAML config file olds the credential and "last email tweeted" information.
+
+# example use
+*/5 * * * * dump1mail | mail2tweet
+
