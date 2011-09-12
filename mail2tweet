@@ -1,0 +1,121 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use Encode qw( decode );
+use Email::MIME;
+use Net::Twitter;
+use YAML::Tiny 'LoadFile';
+use Getopt::Long;
+use Regexp::Common;
+
+# command-line options
+GetOptions( \my %option, 'config=s', 'dry-run', 'help', 'manual' )
+    or pod2usage( -verbose => 1, -exit => 2 );
+
+# simple on-line help
+pod2usage( -verbose => 1 ) if $option{help};
+pod2usage( -verbose => 2 ) if $option{manual};
+
+# read config
+my $config = LoadFile( $option{config} );
+
+# get the message
+my $email = do { local $/; <> };
+exit if !$email;
+$email = Email::MIME->new($email);
+
+# get the charset
+my ($charset) = $email->header('content-type') =~ /charset=([^\s;]+)/;
+$charset ||= 'iso-8859-1'; # is that the right default?
+
+# Windows is always a special case
+$charset = 'cp1252' if $charset eq 'WINDOWS-1252';
+
+# get the subject, properly decoded from whatever encoding
+my $raw_subject = $email->header('subject');
+my $subject = $charset eq 'utf-8'
+    ? $raw_subject
+    : decode( $charset, $raw_subject );
+
+# get rid of uninteresting stuff
+my @remove = ( @{ $config->{format}{remove} || [] }, '^\s*|\s*$' );
+$subject =~ s/$_// for @remove;
+
+# get the first URL
+my @url;
+for my $part ( $email->parts() ) {
+    next if $part->content_type !~ m{text/plain};    # skip non text parts
+    @url = map {/($RE{URI}{HTTP})/g}                 # catch all HTTP URL
+        grep !/^[>:]/,                               # ignore quotes
+        split /\n/, $part->body;
+    last if @url;
+}
+exit if !@url;
+
+# create the message
+my $message = "$subject - $url[0]";
+if ( $option{'dry-run'} ) {    # just checking
+    print "$message\n";
+}
+else {                         # tweet it!
+    my $twit = Net::Twitter->new(
+        traits              => [qw/API::REST OAuth/],
+        consumer_key        => $config->{twitter}{consumer_key},
+        consumer_secret     => $config->{twitter}{consumer_secret},
+        access_token        => $config->{twitter}{access_token},
+        access_token_secret => $config->{twitter}{access_token_secret},
+    );
+    my $result = $twit->update($message);
+}
+
+__END__
+
+=head1 NAME
+
+mail2tweet - tweets subject and first link from an email on stdin
+
+=head1 SYNOPSIS
+
+    cat email.txt | mail2tweet
+
+    # everything of notice happens in the config file:
+    ---
+    format:
+      remove:
+        - '^(?:(?i:Fwd|Re): *)*'
+    twitter:
+      access_token: 371430037-BIy72xkX0DVYroro1MKhyhJDz18BN7C69Zoyt0rO
+      access_token_secret: 1zP21Si6ZG5IX1gsCf2tHk7JqTixyu2b1gJ27eT764
+      consumer_key: jhBlwVmoKxD6Tol5nrSKA
+      consumer_secret: gim30k5hBgIBfIrWodRn7dy4iZV2H3P5BKqKGxZOo
+
+=head1 DESCRIPTION
+
+B<mail2tweet> will read a raw email (as dumped by C<dump1mail>) on
+STDIN, and generate a tweet based on the subject line and the first
+URL found in the email.
+
+The subject line can be "cleaned up" using the regular expressions
+listed in the C<format.remove> configuration key.
+
+Only the messages parts with content-type C<text/plain> will be
+scanned for URL. Quoted email text (lines starting with C<< > >>, C<:>)
+will be ignored.
+
+URL are not shortened, since Twitter will automatically shorten long
+URL using its C<t.co> service.
+
+=head1 AUTHOR
+
+Philippe Bruhat (BooK), C<< <book at cpan.org> >>
+
+=head1 COPYRIGHT
+
+Copyright 2011 Philippe Bruhat (BooK), all rights reserved.
+
+=head1 LICENSE
+
+This program is free software; you can redistribute it and/or modify it
+under the same terms as Perl itself.
+
+=cut
