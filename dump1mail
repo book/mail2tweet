@@ -13,7 +13,7 @@ use DateTime;
 my %option = (
     config => File::Spec->catfile( File::HomeDir->my_data, '.mail2tweetrc' ),
 );
-GetOptions( \%option, 'config=s', 'help', 'manual' )
+GetOptions( \%option, 'config=s', 'dry-run', 'help', 'manual' )
     or pod2usage( -verbose => 1, -exit => 2 );
 
 # simple on-line help
@@ -70,7 +70,7 @@ print $imap->message_string( $oldest );
 
 # save the updated configuration
 $config->{mail}{last} = $date->{$oldest}{epoch};
-DumpFile( $option{config}, $config );
+DumpFile( $option{config}, $config ) if !$option{'dry-run'};
 
 # small helper function
 BEGIN {
