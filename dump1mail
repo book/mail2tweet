@@ -4,16 +4,12 @@ use warnings;
 use YAML::Tiny qw( LoadFile DumpFile Dump );
 use Mail::IMAPClient;
 use Getopt::Long;
-use File::HomeDir;
 use File::Spec;
 use Pod::Usage;
 use DateTime;
 
 # command-line options
-my %option = (
-    config => File::Spec->catfile( File::HomeDir->my_data, '.mail2tweetrc' ),
-);
-GetOptions( \%option, 'config=s', 'dry-run', 'help', 'manual' )
+GetOptions( \my %option, 'config=s', 'dry-run', 'help', 'manual' )
     or pod2usage( -verbose => 1, -exit => 2 );
 
 # simple on-line help
