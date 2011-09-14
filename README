@@ -7,10 +7,11 @@ people. Enters Twitter.
 
 mail2tweet is actually made of two separate tools:
 - dump1mail:  dumps on stdout the oldest email matching criteria
-- mail2tweet: tweets subject and (shortened) first link from an email on stdin
+- mail2tweet: tweets subject and first link from an email on stdin
 
-The YAML config file olds the credential and "last email tweeted" information.
+The YAML config files old the credential, "last email tweeted",
+and content-munging information.
 
-# example use
-*/5 * * * * dump1mail | mail2tweet
+    # example use in a crontab
+    */5 * * * * while ! dump1mail --config imap.yml | mail2tweet --config twitter.yml ; do true ; done
 
