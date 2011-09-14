@@ -26,10 +26,12 @@ $email = Email::MIME->new($email);
 
 # get the charset
 my ($charset) = $email->header('content-type') =~ /charset=([^\s;]+)/;
-$charset ||= 'iso-8859-1'; # is that the right default?
+$charset ||= 'iso-8859-1';    # is that the right default?
+$charset =~ y/'"//d;
+$charset = lc $charset;
 
 # Windows is always a special case
-$charset = 'cp1252' if $charset eq 'WINDOWS-1252';
+$charset = 'cp1252' if $charset eq 'windows-1252';
 
 # get the subject, properly decoded from whatever encoding
 my $raw_subject = $email->header('subject');
