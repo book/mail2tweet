@@ -21,7 +21,7 @@ my $config = LoadFile( $option{config} );
 
 # get the message
 my $email = do { local $/; <> };
-exit if !$email;
+exit 0 if !$email;    # success
 $email = Email::MIME->new($email);
 
 # get the charset
@@ -50,7 +50,7 @@ for my $part ( $email->parts() ) {
         split /\n/, $part->body;
     last if @url;
 }
-exit if !@url;
+exit 1 if !@url;    # fail
 
 # create the message
 my $message = "$subject - $url[0]";
@@ -67,6 +67,8 @@ else {                         # tweet it!
     );
     my $result = $twit->update($message);
 }
+
+exit 0;    # success
 
 __END__
 
