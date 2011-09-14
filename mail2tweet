@@ -40,7 +40,7 @@ my $subject = $charset eq 'utf-8'
     : decode( $charset, $raw_subject );
 
 # get rid of uninteresting stuff
-my @remove = ( @{ $config->{format}{subject} || [] }, '^\s*|\s*$' );
+my @remove = ( @{ $config->{cleanup}{subject} || [] }, '^\s*|\s*$' );
 $subject =~ s/$_// for @remove;
 
 # get the first URL
@@ -48,7 +48,7 @@ my @url;
 for my $part ( $email->parts() ) {
     next if $part->content_type !~ m{text/plain};    # skip non text parts
     my $body = $part->body;
-    $body =~ s/$_//mg for @{ $config->{format}{body} || [] };
+    $body =~ s/$_//mg for @{ $config->{cleanup}{body} || [] };
     my $sign;
     @url = map {/($RE{URI}{HTTP})/g}                 # catch all HTTP URL
         grep !/^[>:]/,                               # ignore quotes
@@ -88,9 +88,11 @@ mail2tweet - tweets subject and first link from an email on stdin
 
     # everything of notice happens in the config file:
     ---
-    format:
-      remove:
+    cleanup:
+      subject:
         - '^(?:(?i:Fwd|Re): *)*'
+      body:
+        - 'http://www.example.com/'
     twitter:
       access_token: 371430037-BIy72xkX0DVYroro1MKhyhJDz18BN7C69Zoyt0rO
       access_token_secret: 1zP21Si6ZG5IX1gsCf2tHk7JqTixyu2b1gJ27eT764
@@ -104,7 +106,8 @@ STDIN, and generate a tweet based on the subject line and the first
 URL found in the email.
 
 The subject line can be "cleaned up" using the regular expressions
-listed in the C<format.remove> configuration key.
+listed in the C<cleanup> configuration keys to remove matching text
+from the I<subject> and I<body> of the email.
 
 Only the messages parts with content-type C<text/plain> will be
 scanned for URL. Quoted email text (lines starting with C<< > >>, C<:>)
