@@ -7,6 +7,8 @@ use Net::Twitter;
 use YAML::Tiny 'LoadFile';
 use Getopt::Long;
 use Regexp::Common;
+use Scalar::Util 'blessed';
+use List::Util 'min';
 
 # command-line options
 GetOptions( \my %option, 'config=s', 'dry-run', 'help', 'manual' )
@@ -71,7 +73,31 @@ else {                         # tweet it!
         access_token        => $config->{twitter}{access_token},
         access_token_secret => $config->{twitter}{access_token_secret},
     );
-    my $result = $twit->update($message);
+
+    my $delay = $config->{twitter}{retry} ||= 30;
+    while (1) {    # keep trying
+        if ( my $result = eval { $twit->update($message); } ) {
+            use Data::Dumper;
+            print Dumper $result;
+            last;
+        }
+        else {
+            my $err = $@;
+            die $err unless blessed $err and $err->isa('Net::Twitter::Error');
+            my $message = sprintf '%s (%d %s)', $err->error, $err->code,
+                $err->message;
+            if ( $err->code ~! /^(?:403|2..)$/ )
+            {   # network error (403 means refused by Twitter)
+                $delay = min $delay, 1800;
+                warn "$message - will retry in $delay seconds\n";
+                sleep $delay;
+                $delay *= 2;
+            }
+            else { # other error
+                die "$message\n";
+            }
+        }
+    }
 }
 
 exit 0;    # success
