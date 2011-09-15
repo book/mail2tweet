@@ -50,10 +50,10 @@ for my $part ( $email->parts() ) {
     my $body = $part->body;
     $body =~ s/$_//mg for @{ $config->{cleanup}{body} || [] };
     my $sign;
-    @url = map {/($RE{URI}{HTTP})/g}                 # catch all HTTP URL
-        grep !/^[>:]/,                               # ignore quotes
-        grep { /^-- ?$/ and $sign = 1; !$sign }      # ignore signature
-        split /[\n\r]+/, $body;                      # line by line
+    @url = map { /($RE{URI}{HTTP}{-scheme=>'https?'})/g }   # catch all HTTP URL
+      grep !/^[>:]/,                                        # ignore quotes
+      grep { /^-- ?$/ and $sign = 1; !$sign }               # ignore signature
+      split /[\n\r]+/, $body;                               # line by line
     last if @url;
 }
 exit 1 if !@url;    # fail
