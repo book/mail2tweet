@@ -86,7 +86,7 @@ else {                         # tweet it!
             die $err unless blessed $err and $err->isa('Net::Twitter::Error');
             my $message = sprintf '%s (%d %s)', $err->error, $err->code,
                 $err->message;
-            if ( $err->code ~! /^(?:403|2..)$/ )
+            if ( $err->code !~ /^(?:403|2..)$/ )
             {   # network error (403 means refused by Twitter)
                 $delay = min $delay, 1800;
                 warn "$message - will retry in $delay seconds\n";
