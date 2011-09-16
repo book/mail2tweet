@@ -61,8 +61,16 @@ $date->{$_}{epoch} > $config->{mail}{last}
 # nothing recent
 exit if !$oldest;
 
+# has this message been \Seen?
+my $seen = grep { /\\Seen/ } $imap->flags( $oldest );
+
 # and print it
 print $imap->message_string( $oldest );
+
+# leave it not \Seen if it wasn't
+$imap->unset_flag( "\\Seen", $oldest )
+  or die "Could not unset_flag: $@\n"
+  if !$seen;
 
 # save the updated configuration
 $config->{mail}{last} = $date->{$oldest}{epoch};
