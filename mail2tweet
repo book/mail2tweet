@@ -94,7 +94,7 @@ else {                         # tweet it!
                 $delay *= 2;
             }
             else { # other error
-                die "$error\n";
+                die "$message\n$error\n";
             }
         }
     }
