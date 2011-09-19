@@ -83,8 +83,6 @@ else {                         # tweet it!
     my $delay = $config->{twitter}{retry} ||= 30;
     while (1) {    # keep trying
         if ( my $result = eval { $twit->update($message); } ) {
-            use Data::Dumper;
-            print Dumper $result;
             last;
         }
         else {
