@@ -60,8 +60,14 @@ for my $part ( $email->parts() ) {
 }
 exit 1 if !@url;    # fail
 
+# add the hashtags
+$subject =~ s{\b(@{[join '|', map quotemeta, @{$config->{twitter}{tags}}]})\b}
+             {#$1}gi
+    if @{ $config->{twitter}{tags} || [] };
+
 # create the message
 my $message = "$subject - $url[0]";
+
 if ( $option{'dry-run'} ) {    # just checking
     print "$message\n";
 }
@@ -120,6 +126,9 @@ mail2tweet - tweets subject and first link from an email on stdin
       body:
         - 'http://www.example.com/'
     twitter:
+      tags:
+        - perl
+        - twitter
       access_token: 371430037-BIy72xkX0DVYroro1MKhyhJDz18BN7C69Zoyt0rO
       access_token_secret: 1zP21Si6ZG5IX1gsCf2tHk7JqTixyu2b1gJ27eT764
       consumer_key: jhBlwVmoKxD6Tol5nrSKA
@@ -138,6 +147,9 @@ from the I<subject> and I<body> of the email.
 Only the messages parts with content-type C<text/plain> will be
 scanned for URL. Quoted email text (lines starting with C<< > >>, C<:>)
 will be ignored.
+
+Keywords listed in the C<twitter.tags> configuration key will be
+highlighted as hashtags (using the C<#> character).
 
 URL are not shortened, since Twitter will automatically shorten long
 URL using its C<t.co> service.
