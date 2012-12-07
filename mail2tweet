@@ -4,11 +4,15 @@ use warnings;
 use Encode qw( decode );
 use Email::MIME;
 use Net::Twitter;
-use YAML::Tiny 'LoadFile';
+use YAML::Tiny qw( LoadFile DumpFile Dump );
+use Mail::IMAPClient;
 use Getopt::Long;
 use Regexp::Common;
 use Scalar::Util 'blessed';
 use List::Util 'min';
+use File::Spec;
+use Pod::Usage;
+use DateTime;
 
 # command-line options
 GetOptions( \my %option, 'config=s', 'dry-run', 'help', 'manual' )
@@ -21,9 +25,57 @@ pod2usage( -verbose => 2 ) if $option{manual};
 # read config
 my $config = LoadFile( $option{config} );
 
-# get the message
-my $email = do { local $/; <> };
-exit 0 if !$email;    # success
+### Step 1: get the message
+
+# start IMAP connection
+my $imap = Mail::IMAPClient->new(
+    Server   => $config->{imap}{server},
+    Port     => $config->{imap}{port},
+    User     => $config->{imap}{user},
+    Password => $config->{imap}{password},
+    Ssl      => $config->{imap}{ssl},
+    Uid      => 1,
+) or die "$@\n";
+
+# select the folder in which to search
+$imap->select( $config->{mail}{folder} )
+    or die "Select '$config->{mail}{folder}' error: ", $imap->LastError, "\n";
+
+# perform the search for interesting messages
+my @search = (
+    SINCE => $imap->Rfc3501_date( $config->{mail}{last} ||= 0 ),
+    @{ $config->{mail}{search} },
+);
+my $msgs = $imap->search( @search )
+    or die "Search '@{ $config->{mail}{search} }' error: ", $imap->LastError,
+    "\n";
+
+# nothing found
+exit if !@$msgs;
+
+# pick up the selected messages dates
+my $date = $imap->fetch_hash( $msgs, "INTERNALDATE" );
+
+# and format them in a sortable way
+$_->{epoch} = epoch_Rfc3501( $_->{INTERNALDATE} ) for values %$date;
+
+# pick up the oldest message
+my ($oldest);
+$date->{$_}{epoch} > $config->{mail}{last}
+    and !$oldest || $date->{$_}{epoch} < $date->{$oldest}{epoch}
+    and $oldest = $_
+    for keys %$date;
+
+# nothing recent
+exit if !$oldest;
+
+# has this message been \Seen?
+my $seen = grep { /\\Seen/ } $imap->flags( $oldest );
+
+# and save it
+my $email = $imap->message_string( $oldest );
+
+### Step 2: munge the email
 $email = Email::MIME->new($email);
 
 # get the charset
@@ -58,12 +110,14 @@ for my $part ( $email->parts() ) {
       split /[\n\r]+/, $body;                               # line by line
     last if @url;
 }
-exit 1 if !@url;    # fail
+goto DONE if !@url;    # goto next email
 
 # add the hashtags
 $subject =~ s{\b(@{[join '|', map quotemeta, @{$config->{twitter}{tags}}]})\b}
              {#$1}gi
     if @{ $config->{twitter}{tags} || [] };
+
+### Step 3: Profit!^W^WSend the tweet
 
 # create the message
 my $message = "$subject - $url[0]";
@@ -104,17 +158,56 @@ else {                         # tweet it!
     }
 }
 
+DONE:
+
+# leave it not \Seen if it wasn't
+$imap->unset_flag( "\\Seen", $oldest )
+  or warn "Could not unset_flag: $@\n"
+  if !$seen;
+
+# save the updated configuration
+$config->{mail}{last} = $date->{$oldest}{epoch};
+DumpFile( $option{config}, $config ) if !$option{'dry-run'};
+
 exit 0;    # success
+
+# small helper function
+BEGIN {
+    my @date_month = qw( Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec );
+    my %month_by_name;
+    @month_by_name{@date_month} = 1 .. @date_month;
+
+    # should probably use DateTime::Format::RFC3501
+    sub epoch_Rfc3501 {
+        my ($internal) = @_;
+
+        # 20-Sep-2010 14:25:53 +0200
+        $internal =~ /^([ ]\d|\d{2})-([A-Z][a-z]{2})-(\d{4}) # date
+           [ ](\d{2}):(\d{2}):(\d{2})                        # time
+           [ ]([+-]\d{4})                                    # tz
+        /x or die "Bad internal date: $internal";
+
+        return DateTime->new(
+            year      => 0 + $3,
+            month     => $month_by_name{$2},
+            day       => 0 + $1,
+            hour      => 0 + $4,
+            minute    => 0 + $5,
+            second    => 0 + $6,
+            time_zone => $7,
+        )->epoch;
+    }
+}
 
 __END__
 
 =head1 NAME
 
-mail2tweet - tweets subject and first link from an email on stdin
+mail2tweet - tweets subject and first link from an email
 
 =head1 SYNOPSIS
 
-    cat email.txt | mail2tweet
+    mail2tweet
 
     # everything of notice happens in the config file:
     ---
@@ -123,6 +216,20 @@ mail2tweet - tweets subject and first link from an email on stdin
         - '^(?:(?i:Fwd|Re): *)*'
       body:
         - 'http://www.example.com/'
+    imap:
+      password: S3kr3t
+      port: 1234
+      server: localhost
+      uid: 1
+      ssl: 1
+      user: example.user
+    mail:
+      folder: INBOX
+      last: 1314777803
+      search:
+        - HEADER
+        - x-list
+        - funny_link
     twitter:
       tags:
         - perl
@@ -134,8 +241,13 @@ mail2tweet - tweets subject and first link from an email on stdin
 
 =head1 DESCRIPTION
 
-B<mail2tweet> will read a raw email (as dumped by C<dump1mail>) on
-STDIN, and generate a tweet based on the subject line and the first
+B<mail2tweet> will connect (using SSL if the C<ssl> key is true) to the
+IMAP server defined in the C<imap> key of the configuration file, open
+the folder defined in the C<mail> section, run the optional C<search>
+and get the oldest email that was received after the epoch
+stored in the C<last> key.
+
+It will then generate a tweet based on the subject line and the first
 URL found in the email.
 
 The subject line can be "cleaned up" using the regular expressions
@@ -152,13 +264,16 @@ highlighted as hashtags (using the C<#> character).
 URL are not shortened, since Twitter will automatically shorten long
 URL using its C<t.co> service.
 
+If a matching email is found, after tweeting it the configuration file
+is then rewritten to update the C<mail.last> key.
+
 =head1 AUTHOR
 
 Philippe Bruhat (BooK), C<< <book at cpan.org> >>
 
 =head1 COPYRIGHT
 
-Copyright 2011 Philippe Bruhat (BooK), all rights reserved.
+Copyright 2011-2012 Philippe Bruhat (BooK), all rights reserved.
 
 =head1 LICENSE
 

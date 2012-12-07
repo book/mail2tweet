@@ -6,17 +6,23 @@ The link are interesting enough that they could be shared with more
 people. Enters Twitter. I want to tweet a summary of the emails:
 simply the subject line and the first URL in the body.
 
-mail2tweet is actually made of two separate tools:
-- dump1mail:  dumps on stdout the oldest email matching criteria
-- mail2tweet: tweets subject and first link from an email on stdin
+mail2tweet gets the oldest email matching the given criteria,
+and tweets subject and first link from an email on stdin.
 
 The YAML config files hold the credentials, "last email tweeted",
 and content-munging information.
 
     # example use in a crontab
-    */5 * * * * while ! dump1mail --config imap.yml | mail2tweet --config twitter.yml ; do true ; done
+    */5 * * * * mail2tweet --config config.yml
 
-    # example imap.yml
+    # example config.yml
+    cleanup:
+      subject:
+        - '\[Sylvester\] *'
+        - '^(?:(?i:Fwd|Re): *)*'
+      body:
+        - 'https?://(?:\S+\.)?example.(?:biz|com|net)'
+        - '#!/'
     imap:
       password: puttytat
       port: 993
@@ -28,15 +34,6 @@ and content-munging information.
       folder: INBOX.lists.sylvester
       last: 1326892229
       search: []
-
-    # example twitter.yml
-    cleanup:
-      subject:
-        - '\[Sylvester\] *'
-        - '^(?:(?i:Fwd|Re): *)*'
-      body:
-        - 'https?://(?:\S+\.)?example.(?:biz|com|net)'
-        - '#!/'
     twitter:
       access_token: 97fo59774-Gy9e4fl2p5PjRHnbdheDrcJJN2DVlAqTSQTX1zgS
       access_token_secret: ENlqvrDcjdSQI4xm2TbTrg9mKysQbe002aurvg37kj
