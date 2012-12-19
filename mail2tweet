@@ -109,6 +109,7 @@ $subject =~ s{\b(@{[join '|', map quotemeta, @{$config->{twitter}{tags}}]})\b}
 
 # create the message
 my $message = "$subject - $url[0]";
+my $error;
 
 if ( $option{'dry-run'} ) {    # just checking
     print "$message\n";
@@ -130,7 +131,7 @@ else {                         # tweet it!
         else {
             my $err = $@;
             die $err unless blessed $err and $err->isa('Net::Twitter::Error');
-            my $error = sprintf '%s (%d %s)', $err->error, $err->code,
+            $error = sprintf '%s (%d %s)', $err->error, $err->code,
                 $err->message;
             if ( $err->code !~ /^(?:403|2..)$/ )
             {   # network error (403 means refused by Twitter)
@@ -139,9 +140,9 @@ else {                         # tweet it!
                 sleep $delay;
                 $delay *= 2;
             }
-            else { # other error
-                die "$message\n$error\n";
-            }
+
+            # other error
+            last;
         }
     }
 }
@@ -156,6 +157,9 @@ $imap->unset_flag( "\\Seen", $oldest )
 # save the updated configuration
 $config->{mail}{last} = $date->{$oldest}{epoch};
 DumpFile( $option{config}, $config ) if !$option{'dry-run'};
+
+# there was an error
+die "$message\n$error\n" if $error;
 
 exit 0;    # success
 
