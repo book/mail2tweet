@@ -15,7 +15,7 @@ use Pod::Usage;
 use DateTime;
 
 # command-line options
-GetOptions( \my %option, 'config=s', 'dry-run', 'help', 'manual' )
+GetOptions( \my %option, 'config=s', 'dry-run', 'verbose', 'help', 'manual' )
     or pod2usage( -verbose => 1, -exit => 2 );
 
 # simple on-line help
@@ -161,6 +161,7 @@ DumpFile( $option{config}, $config ) if !$option{'dry-run'};
 # there was an error
 die "$message\n$error\n" if $error;
 
+print "$message\n" if $message && $option{verbose};
 exit 0;    # success
 
 # small helper function
