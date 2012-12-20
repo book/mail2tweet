@@ -25,7 +25,7 @@ pod2usage( -verbose => 2 ) if $option{manual};
 # read config
 my $config = LoadFile( $option{config} );
 
-### Step 1: get the message
+### Step 1: get the messages
 
 # start IMAP connection
 my $imap = Mail::IMAPClient->new(
@@ -59,46 +59,63 @@ my $date = $imap->fetch_hash( $msgs, "INTERNALDATE" );
 # and format them in a sortable way
 $_->{epoch} = epoch_Rfc3501( $_->{INTERNALDATE} ) for values %$date;
 
-# pick up the oldest message
-my ($oldest);
-$date->{$_}{epoch} > $config->{mail}{last}
-    and !$oldest || $date->{$_}{epoch} < $date->{$oldest}{epoch}
-    and $oldest = $_
-    for keys %$date;
+# sort messages by date
+@$msgs =
+  sort { $date->{$a}{epoch} <=> $date->{$b}{epoch} }
+  grep $date->{$_}{epoch} > $config->{mail}{last}, keys %$date;
 
 # nothing recent
-exit if !$oldest;
+exit if !@$msgs;
 
-# has this message been \Seen?
-my $seen = grep { /\\Seen/ } $imap->flags( $oldest );
+### Step 2: find and munge the email
 
-# and save it
-my $email = $imap->message_string( $oldest );
+# loop on the messages to find the first one to process
+my ( $subject, @url );
+for my $id (@$msgs) {
 
-### Step 2: munge the email
-$email = Email::MIME->new($email);
+    # has this message been \Seen?
+    my $seen = grep { /\\Seen/ } $imap->flags($id);
 
-## get the subject
-my $subject = $email->header('subject');
+    # and save it
+    my $email = $imap->message_string($id);
+    $email = Email::MIME->new($email);
 
-# get rid of uninteresting stuff
-my @remove = ( @{ $config->{cleanup}{subject} || [] }, '^\s*|\s*$' );
-$subject =~ s/$_// for @remove;
+    # get the subject
+    $subject = $email->header('subject');
 
-# get the first URL
-my @url;
-for my $part ( $email->parts() ) {
-    next if $part->content_type !~ m{text/plain};    # skip non text parts
-    my $body = $part->body;
-    $body =~ s/$_//mg for @{ $config->{cleanup}{body} || [] };
-    my $sign;
-    @url = map { /($RE{URI}{HTTP}{-scheme=>'https?'})/g }   # catch all HTTP URL
-      grep !/^[>:]/,                                        # ignore quotes
-      grep { /^-- ?$/ and $sign = 1; !$sign }               # ignore signature
-      split /[\n\r]+/, $body;                               # line by line
-    last if @url;
+    # get rid of uninteresting stuff
+    my @remove = ( @{ $config->{cleanup}{subject} || [] }, '^\s*|\s*$' );
+    $subject =~ s/$_// for @remove;
+
+    # get the first URL
+    for my $part ( $email->parts() ) {
+        next if $part->content_type !~ m{text/plain};    # skip non text parts
+        my $body = $part->body;
+        $body =~ s/$_//mg for @{ $config->{cleanup}{body} || [] };
+        my $sign;
+        @url =
+          map { /($RE{URI}{HTTP}{-scheme=>'https?'})/g }    # catch all HTTP URL
+          grep !/^[>:]/,                                    # ignore quotes
+          grep {
+            /^-- ?$/ and $sign = 1;
+            !$sign
+          }                                                 # ignore signature
+          split /[\n\r]+/, $body;                           # line by line
+    }
+
+    # leave it not \Seen if it wasn't
+    $imap->unset_flag( "\\Seen", $id )
+      or warn "Could not unset_flag: $@\n"
+      if !$seen;
+
+    # track date of last checked email
+    $config->{mail}{last} = $date->{$id}{epoch};
+
+    last if @url;                                   # this email can be tweeted!
+    print "Skip: $subject\n" if $option{verbose};
 }
-goto DONE if !@url;    # goto next email
+
+goto DONE if !@url;    # nothing found in any of the emails
 
 # add the hashtags
 $subject =~ s{\b(@{[join '|', map quotemeta, @{$config->{twitter}{tags}}]})\b}
@@ -112,7 +129,8 @@ my $message = "$subject - $url[0]";
 my $error;
 
 if ( $option{'dry-run'} ) {    # just checking
-    print "$message\n";
+    print "Tweet: $message\n";
+    exit 0;
 }
 else {                         # tweet it!
     my $twit = Net::Twitter->new(
@@ -149,19 +167,13 @@ else {                         # tweet it!
 
 DONE:
 
-# leave it not \Seen if it wasn't
-$imap->unset_flag( "\\Seen", $oldest )
-  or warn "Could not unset_flag: $@\n"
-  if !$seen;
-
 # save the updated configuration
-$config->{mail}{last} = $date->{$oldest}{epoch};
 DumpFile( $option{config}, $config ) if !$option{'dry-run'};
 
 # there was an error
-die "$message\n$error\n" if $error;
+die "Error: $message\n$error\n" if $error;
 
-print "$message\n" if $message && $option{verbose};
+print "Tweet: $message\n" if $message && $option{verbose};
 exit 0;    # success
 
 # small helper function
