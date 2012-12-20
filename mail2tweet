@@ -249,6 +249,7 @@ mail2tweet - tweets subject and first link from an email
         - HEADER
         - x-list
         - funny_link
+    seen_file: seen_url.yml
     twitter:
       tags:
         - perl
@@ -282,6 +283,11 @@ highlighted as hashtags (using the C<#> character).
 
 URL are not shortened, since Twitter will automatically shorten long
 URL using its C<t.co> service.
+
+Already seen URL can be optionaly stored in a YAML file (C<seen_file>
+configuration key). They will be ignored when looking for URL in an
+email, thus allowing to look for a URL further in an email (typical
+use case: email replies with a quoted URL).
 
 If a matching email is found, after tweeting it the configuration file
 is then rewritten to update the C<mail.last> key.
