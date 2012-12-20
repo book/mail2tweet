@@ -25,6 +25,13 @@ pod2usage( -verbose => 2 ) if $option{manual};
 # read config
 my $config = LoadFile( $option{config} );
 
+# load list of already tweeted URL
+my $seen_url;
+$seen_url = LoadFile( $config->{seen_file} )
+    if $config->{seen_file};
+
+# TODO drop URL tweeted more than X days ago
+
 ### Step 1: get the messages
 
 # start IMAP connection
@@ -111,6 +118,9 @@ for my $id (@$msgs) {
     # track date of last checked email
     $config->{mail}{last} = $date->{$id}{epoch};
 
+    # remove already seen URL
+    @url = grep !$seen_url->{$_}, @url;
+
     last if @url;                                   # this email can be tweeted!
     print "Skip: $subject\n" if $option{verbose};
 }
@@ -172,6 +182,10 @@ DumpFile( $option{config}, $config ) if !$option{'dry-run'};
 
 # there was an error
 die "Error: $message\n$error\n" if $error;
+
+$seen_url->{$url[0]} = $config->{mail}{last} if @url;
+DumpFile( $config->{seen_file}, $seen_url )
+  if !$option{'dry-run'} && $config->{seen_file};
 
 print "Tweet: $message\n" if $message && $option{verbose};
 exit 0;    # success
