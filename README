@@ -33,7 +33,14 @@ and content-munging information.
     mail:
       folder: INBOX.lists.sylvester
       last: 1326892229
-      search: []
+      search:
+        - HEADER
+        - x-list
+        - funny_link
+    seen_file: seen_url.yml
+    sender_map:
+      sylvester@example.com: puttytat
+      granny@example: grandma
     twitter:
       access_token: 97fo59774-Gy9e4fl2p5PjRHnbdheDrcJJN2DVlAqTSQTX1zgS
       access_token_secret: ENlqvrDcjdSQI4xm2TbTrg9mKysQbe002aurvg37kj
