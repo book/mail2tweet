@@ -272,7 +272,7 @@ mail2tweet - tweets subject and first link from an email
     seen_file: seen_url.yml
     sender_map:
       alice@example.com: alice
-      bob@example: bobby
+      bob@example.com: bobby
     twitter:
       tags:
         - perl
