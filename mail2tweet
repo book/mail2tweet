@@ -6,6 +6,7 @@ use Email::MIME;
 use Net::Twitter;
 use YAML::Tiny qw( LoadFile DumpFile Dump );
 use Mail::IMAPClient;
+use Mail::Address;
 use Getopt::Long;
 use Regexp::Common;
 use Scalar::Util 'blessed';
@@ -79,7 +80,7 @@ exit if !@$msgs;
 ### Step 2: find and munge the email
 
 # loop on the messages to find the first one to process
-my ( $subject, @url );
+my ( $subject, $from, @url );
 for my $id (@$msgs) {
 
     # has this message been \Seen?
@@ -91,6 +92,9 @@ for my $id (@$msgs) {
 
     # get the subject
     $subject = $email->header('subject');
+
+    # get the sender email
+    ($from) = Mail::Address->parse( $email->header("From") );
 
     # get rid of uninteresting stuff
     my @remove = ( @{ $config->{cleanup}{subject} || [] }, '^\s*|\s*$' );
@@ -138,6 +142,8 @@ $subject =~ s{\b(@{[join '|', map quotemeta, @{$config->{twitter}{tags}}]})\b}
 
 # create the message
 my $message = "$subject - $url[0]";
+$message .= " (\@$config->{sender_map}{$from->address})"
+    if exists $config->{sender_map}{ $from->address };
 my $error;
 
 if ( $option{'dry-run'} ) {    # just checking
@@ -264,6 +270,9 @@ mail2tweet - tweets subject and first link from an email
         - x-list
         - funny_link
     seen_file: seen_url.yml
+    sender_map:
+      alice@example.com: alice
+      bob@example: bobby
     twitter:
       tags:
         - perl
@@ -282,7 +291,9 @@ and get the oldest email that was received after the epoch
 stored in the C<last> key.
 
 It will then generate a tweet based on the subject line and the first
-URL found in the email.
+URL found in the email. If the sender's email address is found in
+the C<sender_map> email to twitter account mapper, then the author
+of the email will be added as a remark in the tweet.
 
 The subject line can be "cleaned up" using the regular expressions
 listed in the C<cleanup> configuration keys to remove matching text
