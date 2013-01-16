@@ -15,7 +15,9 @@ use Pod::Usage;
 use DateTime;
 
 # command-line options
-GetOptions( \my %option, 'config=s', 'dry-run', 'verbose', 'help', 'manual' )
+my %option = ( tweet => 1 );
+GetOptions( \%option, 'config=s', 'dry-run', 'tweet!', 'verbose', 'help',
+    'manual' )
     or pod2usage( -verbose => 1, -exit => 2 );
 
 # simple on-line help
@@ -153,6 +155,7 @@ else {                         # tweet it!
 
     my $delay = $config->{twitter}{retry} ||= 30;
     while (1) {    # keep trying
+        last if !$option{tweet};
         if ( my $result = eval { $twit->update($message); } ) {
             last;
         }
@@ -226,7 +229,18 @@ mail2tweet - tweets subject and first link from an email
 
 =head1 SYNOPSIS
 
-    mail2tweet
+    mail2tweet [options]
+
+      --config <file>   Define the configuration file
+      --dry-run         Read email and format tweet, but do not tweet
+                        or update de configuration file
+      --no-tweet        Do everything BUT the tweet
+      --verbose         Display the tweet being skipped or sent
+
+      --help            Print a short help summary and exit
+      --manual          Print the full manual page and exit
+
+=head1 CONFIGURATION
 
     # everything of notice happens in the config file:
     ---
