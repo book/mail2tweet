@@ -179,6 +179,11 @@ else {                         # tweet it!
                 last;                               # skip
             }
 
+            # 410: The Twitter REST API v1 is no longer active. Please migrate to API v1.1.
+            elsif ( $err->code eq '410' ) {
+                die "Error: $message\n$error\n";    # abort
+            }
+
             # network error?
             else {
                 $delay = min $delay, 1800;
