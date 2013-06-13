@@ -152,7 +152,7 @@ if ( $option{'dry-run'} ) {    # just checking
 }
 else {                         # tweet it!
     my $twit = Net::Twitter->new(
-        traits              => [qw/API::REST OAuth/],
+        traits              => [qw/API::RESTv1_1 OAuth/],
         consumer_key        => $config->{twitter}{consumer_key},
         consumer_secret     => $config->{twitter}{consumer_secret},
         access_token        => $config->{twitter}{access_token},
