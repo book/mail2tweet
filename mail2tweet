@@ -37,15 +37,24 @@ $seen_url = LoadFile( $config->{seen_file} )
 
 ### Step 1: get the messages
 
-# start IMAP connection
-my $imap = Mail::IMAPClient->new(
+# IMAP options
+my @imap = (
     Server   => $config->{imap}{server},
     Port     => $config->{imap}{port},
     User     => $config->{imap}{user},
     Password => $config->{imap}{password},
-    Ssl      => $config->{imap}{ssl},
     Uid      => 1,
-) or die "$@\n";
+);
+
+# IMAP SSL options (if needed)
+if( $config->{imap}{ssl} ) {
+    require IO::Socket::SSL;
+    import IO::Socket::SSL;
+    push @imap, Ssl => [ SSL_verify_mode => SSL_VERIFY_NONE() ],
+}
+
+# start IMAP connection
+my $imap = Mail::IMAPClient->new(@imap) or die "$@\n";
 
 # select the folder in which to search
 $imap->select( $config->{mail}{folder} )
