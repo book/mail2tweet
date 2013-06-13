@@ -161,6 +161,7 @@ else {                         # tweet it!
 
     my $delay = $config->{twitter}{retry} ||= 30;
     while (1) {    # keep trying
+        $error = '';
         last if !$option{tweet};
         if ( my $result = eval { $twit->update($message); } ) {
             last;
@@ -170,16 +171,21 @@ else {                         # tweet it!
             die $err unless blessed $err and $err->isa('Net::Twitter::Error');
             $error = sprintf '%s (%d %s)', $err->error, $err->code,
                 $err->message;
-            if ( $err->code !~ /^(?:403|2..)$/ )
-            {   # network error (403 means refused by Twitter)
+
+            # 2xx: success?
+            # 403: refused by Twitter
+            if ( $err->code =~ /^(?:403|2..)$/ ) {
+                last;                               # skip
+            }
+
+            # network error?
+            else {
                 $delay = min $delay, 1800;
                 warn "$error - will retry in $delay seconds\n";
                 sleep $delay;
                 $delay *= 2;
             }
 
-            # other error
-            last;
         }
     }
 }
