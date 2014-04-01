@@ -166,6 +166,7 @@ else {                         # tweet it!
         consumer_secret     => $config->{twitter}{consumer_secret},
         access_token        => $config->{twitter}{access_token},
         access_token_secret => $config->{twitter}{access_token_secret},
+        ssl                 => 1,
     );
 
     my $delay = $config->{twitter}{retry}     ||= 30;
