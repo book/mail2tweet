@@ -210,7 +210,10 @@ else {                         # tweet it!
 DONE:
 
 # save the updated configuration
-DumpFile( $option{config}, $config ) if !$option{'dry-run'};
+if( !$option{'dry-run'} ) {
+    open my $fh, '>:utf8', $option{config} or die "Can't open $option{config} for writing: $!";
+    print $fh Dump( $config );
+}
 
 # there was an error
 die "Error: $message\n$error\n" if $error;
