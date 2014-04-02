@@ -54,7 +54,7 @@ if( $config->{imap}{ssl} ) {
 }
 
 # start IMAP connection
-my $imap = Mail::IMAPClient->new(@imap) or die "$@\n";
+my $imap = Mail::IMAPClient->new(@imap) or die "Mail::IMAPClient: $@\n";
 
 # select the folder in which to search
 $imap->select( $config->{mail}{folder} )
@@ -179,7 +179,7 @@ else {                         # tweet it!
         }
         else {
             my $err = $@;
-            die $err unless blessed $err and $err->isa('Net::Twitter::Error');
+            die "Net::Twitter: $err" unless blessed $err and $err->isa('Net::Twitter::Error');
             $error = sprintf '%s (%d %s)', $err->error, $err->code,
                 $err->message;
 
