@@ -18,7 +18,7 @@ use DateTime;
 # command-line options
 my %option = ( tweet => 1 );
 GetOptions( \%option, 'config=s', 'dry-run', 'tweet!', 'verbose', 'help',
-    'manual' )
+    'manual', 'quiet!' )
     or pod2usage( -verbose => 1, -exit => 2 );
 
 # simple on-line help
@@ -54,7 +54,8 @@ if( $config->{imap}{ssl} ) {
 }
 
 # start IMAP connection
-my $imap = Mail::IMAPClient->new(@imap) or die "Mail::IMAPClient: $@\n";
+my $imap = Mail::IMAPClient->new(@imap)
+  or $option{quiet} ? exit 1 : die "Mail::IMAPClient: $@\n";
 
 # select the folder in which to search
 $imap->select( $config->{mail}{folder} )
