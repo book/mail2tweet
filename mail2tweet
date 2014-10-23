@@ -112,7 +112,8 @@ for my $id (@$msgs) {
 
     # get the first URL
     for my $part ( $email->parts() ) {
-        next if $part->content_type !~ m{text/plain};    # skip non text parts
+        next if $part->content_type    # skip non text parts
+              && $part->content_type !~ m{text/plain};
         my $body = $part->body;
         $body =~ s/$_//mg for @{ $config->{cleanup}{body} || [] };
         my $sign;
