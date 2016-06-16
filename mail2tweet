@@ -44,6 +44,7 @@ my @imap = (
     User     => $config->{imap}{user},
     Password => $config->{imap}{password},
     Uid      => 1,
+    IgnoreSizeErrors => 1,
 );
 
 # IMAP SSL options (if needed)
