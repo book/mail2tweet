@@ -17,8 +17,8 @@ use DateTime;
 
 # command-line options
 my %option = ( tweet => 1 );
-GetOptions( \%option, 'config=s', 'dry-run', 'tweet!', 'verbose', 'help',
-    'manual', 'quiet!' )
+GetOptions( \%option, 'config=s', 'dry-run', 'tweet!', 'verbose', 'debug',
+    'help', 'manual', 'quiet!' )
     or pod2usage( -verbose => 1, -exit => 2 );
 
 # simple on-line help
@@ -45,6 +45,7 @@ my @imap = (
     Password => $config->{imap}{password},
     Uid      => 1,
     IgnoreSizeErrors => 1,
+  ( Debug    => 1 )x!! $option{debug},
 );
 
 # IMAP SSL options (if needed)
