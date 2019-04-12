@@ -119,7 +119,7 @@ for my $id (@$msgs) {
         my $body = $part->body;
         $body =~ s/$_//mg for @{ $config->{cleanup}{body} || [] };
         my $sign;
-        @url =
+        push @url,
           map { /($RE{URI}{HTTP}{-scheme=>'https?'})/g }    # catch all HTTP URL
           grep !/^[>:]/,                                    # ignore quotes
           grep {
