@@ -113,8 +113,11 @@ for my $id (@$msgs) {
     $subject =~ s/$_// for @remove;
 
     # get the first URL
-    for my $part ( $email->parts() ) {
-        next if $part->content_type    # skip non text parts
+    $email->walk_parts( sub {
+        my ($part) = @_;
+        return if $part->subparts; # multipart
+
+        return if $part->content_type    # skip non text parts
               && $part->content_type !~ m{text/plain};
         my $body = $part->body;
         $body =~ s/$_//mg for @{ $config->{cleanup}{body} || [] };
@@ -127,7 +130,7 @@ for my $id (@$msgs) {
             !$sign
           }                                                 # ignore signature
           split /[\n\r]+/, $body;                           # line by line
-    }
+    } );
 
     # leave it not \Seen if it wasn't
     $imap->unset_flag( "\\Seen", $id )
